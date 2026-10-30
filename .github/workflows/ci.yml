@@ -1,0 +1,60 @@
+# 由 cicd-generator 生成：C / C++ CI（CMake + CTest）
+# 需要多平台时在 strategy.matrix 加 os，并按 OS 分支安装工具链（本项目模板默认只跑 Linux）
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build (${{ matrix.build_type }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build ccache
+
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ matrix.build_type }}
+
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DBUILD_TESTING=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Upload artifact
+        if: matrix.build_type == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hello_world
+          path: build/hello
+          retention-days: 7
