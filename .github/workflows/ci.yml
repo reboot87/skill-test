@@ -53,7 +53,7 @@ jobs:
 
       - name: Upload artifact
         if: matrix.build_type == 'Release'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: hello_world
           path: build/hello
